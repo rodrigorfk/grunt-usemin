@@ -99,7 +99,7 @@ module.exports = function (grunt) {
         var revvedfinder = new RevvedFinder(function (p) { return grunt.file.expand({filter: 'isFile'}, p); }, options.dirs);
 
         // ext-specific directives handling and replacement of blocks
-        var proc = new processors[options.type](filedir, '', content, revvedfinder, function (msg) {
+        var proc = new processors[options.type](filedir, '', '', content, revvedfinder, function (msg) {
           grunt.log.writeln(msg);
         });
 
@@ -117,12 +117,14 @@ module.exports = function (grunt) {
     var uglifyName = options.uglify || 'uglify';
     var cssminName = options.cssmin || 'cssmin';
     var dest = options.dest;
+    var tmp = options.tmp;
 
     // concat / uglify / cssmin / requirejs config
     var concat = grunt.config('concat') || {};
     var uglify = grunt.config(uglifyName) || {};
     var cssmin = grunt.config(cssminName) || {};
     var requirejs = grunt.config('requirejs') || {};
+    var less = grunt.config('less') || {};
 
     grunt.log
       .writeln('Going through ' + grunt.log.wordlist(files) + ' to update the config')
@@ -136,8 +138,9 @@ module.exports = function (grunt) {
     });
 
     files.forEach(function (file) {
+
       var revvedfinder = new RevvedFinder(function (p) { return grunt.file.expand({filter: 'isFile'}, p); });
-      var proc = new HTMLProcessor(path.dirname(file.path), dest, file.body, revvedfinder, function (msg) {
+      var proc = new HTMLProcessor(path.dirname(file.path), dest, tmp, file.body, revvedfinder, function (msg) {
         grunt.log.writeln(msg);
       });
 
@@ -146,6 +149,13 @@ module.exports = function (grunt) {
           .writeln(grunt.log.wordlist(block.raw, { separator: '\n' }))
           .writeln('Updating config with the following assets:')
           .writeln('    - ' + grunt.log.wordlist(block.src, { separator: '\n    - ' }));
+
+          if(block.type === "css" && block.less){
+              block.less.forEach(function (itm){
+                  less.dist.files[itm.dest] = itm.src;
+              });
+              grunt.config('less', less);
+          }
 
         // update concat config for this block
         if (block.dest.match(/^_/)) {
@@ -226,6 +236,8 @@ module.exports = function (grunt) {
       .subhead('  uglify:')
       .writeln('  ' + inspect(uglify))
       .subhead('  requirejs:')
-      .writeln('  ' + inspect(requirejs));
+      .writeln('  ' + inspect(requirejs))
+      .subhead('  less:')
+      .writeln('  ' + inspect(less));
   });
 };
