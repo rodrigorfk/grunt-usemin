@@ -3,7 +3,7 @@ var util = require('util');
 var path = require('path');
 
 var inspect = function (obj) {
-  return util.inspect(obj, false, 4, true);
+    return util.inspect(obj, false, 4, true);
 };
 
 //
@@ -67,177 +67,185 @@ var inspect = function (obj) {
 //
 
 module.exports = function (grunt) {
-  var HTMLProcessor = require('../lib/htmlprocessor');
-  var CSSProcessor = require('../lib/cssprocessor');
-  var RevvedFinder = require('../lib/revvedfinder');
+    var HTMLProcessor = require('../lib/htmlprocessor');
+    var CSSProcessor = require('../lib/cssprocessor');
+    var RevvedFinder = require('../lib/revvedfinder');
 
-  grunt.registerMultiTask('usemin', 'Replaces references to non-minified scripts / stylesheets', function () {
-    var options = this.options({
-      type: this.target
-    });
-
-    var processors = {
-      css: CSSProcessor,
-      html: HTMLProcessor
-    };
-
-    this.files.forEach(function (fileObj) {
-      var files = grunt.file.expand({nonull: true}, fileObj.src);
-
-      files.map(grunt.file.read).forEach(function (content, i) {
-        var filepath = files[i];
-        var filedir = options.basedir || path.dirname(filepath);
-
-        grunt.log.subhead('Processing as ' + options.type.toUpperCase() + ' - ' + filepath);
-
-        // make sure to convert back into utf8, `file.read` when used as a
-        // forEach handler will take additional arguments, and thus trigger the
-        // raw buffer read
-        content = content.toString();
-
-        // Our revved version locator
-        var revvedfinder = new RevvedFinder(function (p) { return grunt.file.expand({filter: 'isFile'}, p); }, options.dirs);
-
-        // ext-specific directives handling and replacement of blocks
-        var proc = new processors[options.type](filedir, '', '', content, revvedfinder, function (msg) {
-          grunt.log.writeln(msg);
+    grunt.registerMultiTask('usemin', 'Replaces references to non-minified scripts / stylesheets', function () {
+        var options = this.options({
+            type: this.target
         });
 
-        content = proc.process();
-        // write the new content to disk
-        grunt.file.write(filepath, content);
-      });
+        var processors = {
+            css: CSSProcessor,
+            html: HTMLProcessor
+        };
+
+        this.files.forEach(function (fileObj) {
+            var files = grunt.file.expand({nonull: true}, fileObj.src);
+
+            files.map(grunt.file.read).forEach(function (content, i) {
+                var filepath = files[i];
+                var filedir = options.basedir || path.dirname(filepath);
+
+                grunt.log.subhead('Processing as ' + options.type.toUpperCase() + ' - ' + filepath);
+
+                // make sure to convert back into utf8, `file.read` when used as a
+                // forEach handler will take additional arguments, and thus trigger the
+                // raw buffer read
+                content = content.toString();
+
+                // Our revved version locator
+                var revvedfinder = new RevvedFinder(function (p) { return grunt.file.expand({filter: 'isFile'}, p); }, options.dirs);
+
+                // ext-specific directives handling and replacement of blocks
+                var proc = new processors[options.type](filedir, '', '', content, revvedfinder, function (msg) {
+                    grunt.log.writeln(msg);
+                });
+
+                content = proc.process();
+                // write the new content to disk
+                grunt.file.write(filepath, content);
+            });
+        });
     });
-  });
 
-  grunt.registerMultiTask('useminPrepare', 'Using HTML markup as the primary source of information', function () {
-    var options = this.options();
-    // collect files
-    var files = grunt.file.expand({filter: 'isFile'}, this.data);
-    var uglifyName = options.uglify || 'uglify';
-    var cssminName = options.cssmin || 'cssmin';
-    var dest = options.dest;
-    var tmp = options.tmp;
+    grunt.registerMultiTask('useminPrepare', 'Using HTML markup as the primary source of information', function () {
+        var options = this.options();
+        // collect files
+        var files = grunt.file.expand({filter: 'isFile'}, this.data);
+        var uglifyName = options.uglify || 'uglify';
+        var cssminName = options.cssmin || 'cssmin';
+        var dest = options.dest;
+        var tmp = options.tmp;
 
-    // concat / uglify / cssmin / requirejs config
-    var concat = grunt.config('concat') || {};
-    var uglify = grunt.config(uglifyName) || {};
-    var cssmin = grunt.config(cssminName) || {};
-    var requirejs = grunt.config('requirejs') || {};
-    var less = grunt.config('less') || {};
+        // concat / uglify / cssmin / requirejs config
+        var concat = grunt.config('concat') || {};
+        var uglify = grunt.config(uglifyName) || {};
+        var cssmin = grunt.config(cssminName) || {};
+        var requirejs = grunt.config('requirejs') || {};
+        var less = grunt.config('less') || {};
+        var ignore = grunt.config('build-ignore') || [];
 
-    grunt.log
-      .writeln('Going through ' + grunt.log.wordlist(files) + ' to update the config')
-      .writeln('Looking for build script HTML comment blocks');
+        grunt.log
+            .writeln('Going through ' + grunt.log.wordlist(files) + ' to update the config')
+            .writeln('Looking for build script HTML comment blocks');
 
-    files = files.map(function (filepath) {
-      return {
-        path: filepath,
-        body: grunt.file.read(filepath)
-      };
-    });
-
-    files.forEach(function (file) {
-
-      var revvedfinder = new RevvedFinder(function (p) { return grunt.file.expand({filter: 'isFile'}, p); });
-      var proc = new HTMLProcessor(path.dirname(file.path), dest, tmp, file.body, revvedfinder, function (msg) {
-        grunt.log.writeln(msg);
-      });
-
-      proc.blocks.forEach(function (block) {
-        grunt.log.subhead('Found a block:')
-          .writeln(grunt.log.wordlist(block.raw, { separator: '\n' }))
-          .writeln('Updating config with the following assets:')
-          .writeln('    - ' + grunt.log.wordlist(block.src, { separator: '\n    - ' }));
-
-          if(block.type === "css" && block.less){
-              block.less.forEach(function (itm){
-                  less.dist.files[itm.dest] = itm.src;
-              });
-              grunt.config('less', less);
-          }
-
-        // update concat config for this block
-        if (block.dest.match(/^_/)) {
-          // grunt does not allow tasks with _, so convert to complex method
-          concat[block.dest.replace('_', '')] = {
-            src: block.src,
-            dest: block.dest
-          };
-        } else {
-          concat[block.dest] = block.src;
-        }
-        grunt.config('concat', concat);
-
-        // update requirejs config as well, as during path lookup we might have
-        // updated it on data-main attribute
-
-        if (block.requirejs) {
-
-          var hasTasks;
-          for (var i in requirejs) {
-            if (requirejs.hasOwnProperty(i)) {
-              hasTasks = true;
-              var task = requirejs[i];
-              var options = task.options;
-              if (options) {
-                options.name = options.name || block.requirejs.name;
-                options.out = options.out || block.requirejs.dest;
-                options.baseUrl = options.baseUrl || block.requirejs.baseUrl;
-                options.mainConfigFile = options.mainConfigFile || path.join(options.baseUrl, options.name) + '.js';
-              } else {
-                task.options = {
-                  name: block.requirejs.name,
-                  out: block.requirejs.dest,
-                  baseUrl: block.requirejs.baseUrl,
-                  mainConfigFile: block.requirejs.mainConfigFile || path.join(block.requirejs.baseUrl, block.requirejs.name) + '.js'
-                };
-              }
-            }
-          }
-          if (!hasTasks) {
-            requirejs.default = {
-              options: {
-                name: block.requirejs.name,
-                out: block.requirejs.dest,
-                baseUrl: block.requirejs.baseUrl
-              }
+        files = files.map(function (filepath) {
+            return {
+                path: filepath,
+                body: grunt.file.read(filepath)
             };
-          }
-          grunt.config('requirejs', requirejs);
-        }
+        });
 
-        // uglify config, only for js type block
-        if (block.type === 'js') {
-          // TODO: we should differentiate whether or not we're
-          // using concat before ... Option ?
-          uglify[block.dest] = block.dest;
+        files.forEach(function (file) {
 
-          if (block.requirejs) {
-            uglify[block.requirejs.srcDest] = block.requirejs.src;
-          }
-          grunt.config(uglifyName, uglify);
-        }
+            var revvedfinder = new RevvedFinder(function (p) { return grunt.file.expand({filter: 'isFile'}, p); });
+            var proc = new HTMLProcessor(path.dirname(file.path), dest, tmp, file.body, revvedfinder, function (msg) {
+                grunt.log.writeln(msg);
+            });
 
-        // cssmin config, only for cssmin type block
-        if (block.type === 'css') {
-          cssmin[block.dest] = block.dest;
-          grunt.config(cssminName, cssmin);
-        }
-      });
+            proc.blocks.forEach(function (block) {
+                grunt.log.subhead('Found a block:')
+                    .writeln(grunt.log.wordlist(block.raw, { separator: '\n' }))
+                    .writeln('Updating config with the following assets:')
+                    .writeln('    - ' + grunt.log.wordlist(block.src, { separator: '\n    - ' }));
+
+                if(block.type === "css" && block.less){
+                    block.less.forEach(function (itm){
+                        less.dist.files[itm.dest] = itm.src;
+                    });
+                    grunt.config('less', less);
+                }
+
+                // update concat config for this block
+                if(block.dest){
+                    if (block.dest.match(/^_/)) {
+                        // grunt does not allow tasks with _, so convert to complex method
+                        concat[block.dest.replace('_', '')] = {
+                            src: block.src,
+                            dest: block.dest
+                        };
+                    } else {
+                        concat[block.dest] = block.src;
+                    }
+                }
+                grunt.config('concat', concat);
+
+                // update requirejs config as well, as during path lookup we might have
+                // updated it on data-main attribute
+
+                if (block.requirejs) {
+
+                    var hasTasks;
+                    for (var i in requirejs) {
+                        if (requirejs.hasOwnProperty(i)) {
+                            hasTasks = true;
+                            var task = requirejs[i];
+                            var options = task.options;
+                            if (options) {
+                                options.name = options.name || block.requirejs.name;
+                                options.out = options.out || block.requirejs.dest;
+                                options.baseUrl = options.baseUrl || block.requirejs.baseUrl;
+                                options.mainConfigFile = options.mainConfigFile || path.join(options.baseUrl, options.name) + '.js';
+                            } else {
+                                task.options = {
+                                    name: block.requirejs.name,
+                                    out: block.requirejs.dest,
+                                    baseUrl: block.requirejs.baseUrl,
+                                    mainConfigFile: block.requirejs.mainConfigFile || path.join(block.requirejs.baseUrl, block.requirejs.name) + '.js'
+                                };
+                            }
+                        }
+                    }
+                    if (!hasTasks) {
+                        requirejs.default = {
+                            options: {
+                                name: block.requirejs.name,
+                                out: block.requirejs.dest,
+                                baseUrl: block.requirejs.baseUrl
+                            }
+                        };
+                    }
+                    grunt.config('requirejs', requirejs);
+                }
+
+                // uglify config, only for js type block
+                if (block.type === 'js') {
+                    // TODO: we should differentiate whether or not we're
+                    // using concat before ... Option ?
+                    uglify[block.dest] = block.dest;
+
+                    if (block.requirejs) {
+                        uglify[block.requirejs.srcDest] = block.requirejs.src;
+                    }
+                    grunt.config(uglifyName, uglify);
+                }
+
+                // cssmin config, only for cssmin type block
+                if (block.type === 'css') {
+                    cssmin[block.dest] = block.dest;
+                    grunt.config(cssminName, cssmin);
+                }
+
+                if(block.type === 'ignore'){
+                    ignore.push(block)
+                    grunt.config('build-ignore',ignore);
+                }
+            });
+        });
+
+        // log a bit what was added to config
+        grunt.log.subhead('Configuration is now:')
+            .subhead('  cssmin:')
+            .writeln('  ' + inspect(cssmin))
+            .subhead('  concat:')
+            .writeln('  ' + inspect(concat))
+            .subhead('  uglify:')
+            .writeln('  ' + inspect(uglify))
+            .subhead('  requirejs:')
+            .writeln('  ' + inspect(requirejs))
+            .subhead('  less:')
+            .writeln('  ' + inspect(less));
     });
-
-    // log a bit what was added to config
-    grunt.log.subhead('Configuration is now:')
-      .subhead('  cssmin:')
-      .writeln('  ' + inspect(cssmin))
-      .subhead('  concat:')
-      .writeln('  ' + inspect(concat))
-      .subhead('  uglify:')
-      .writeln('  ' + inspect(uglify))
-      .subhead('  requirejs:')
-      .writeln('  ' + inspect(requirejs))
-      .subhead('  less:')
-      .writeln('  ' + inspect(less));
-  });
 };
