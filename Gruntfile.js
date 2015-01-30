@@ -5,33 +5,43 @@ module.exports = function (grunt) {
       options: {
         jshintrc: '.jshintrc'
       },
-      all: [
-        'Gruntfile.js',
-        'lib/*.js',
-        'tasks/*.js',
-        'test/**/*.js',
-        '!test/temp/scripts/*.js',
-      ]
+      grunt: {
+        src: ['Gruntfile.js']
+      },
+      core: {
+        src: ['lib/**/*.js', 'tasks/*.js']
+      },
+      test: {
+        src: ['test/**/*.js', '!test/temp/**/*.js', '!test/fixtures/*.js']
+      }
+    },
+
+    jscs: {
+      options: {
+        config: '.jscsrc'
+      },
+      grunt: {
+        src: ['<%= jshint.grunt.src %>']
+      },
+      core: {
+        src: ['<%= jshint.core.src %>']
+      },
+      test: {
+        src: ['<%= jshint.test.src %>']
+      }
+    },
+
+    mochacli: {
+      all: ['test/test-*.js']
     }
   });
 
   grunt.loadNpmTasks('grunt-contrib-jshint');
+  grunt.loadNpmTasks('grunt-jscs');
+  grunt.loadNpmTasks('grunt-mocha-cli');
 
   grunt.loadTasks('tasks');
 
-  grunt.registerTask('test', 'Run tests', function () {
-    var done = this.async();
-    var spawnOpts = {
-      cmd: 'node_modules/mocha/bin/mocha',
-      args: grunt.file.expand('test/test-*.js')
-    };
-    grunt.util.spawn(spawnOpts, function (err, res, code) {
-      grunt.log.write(res.stdout);
-      if (code) {
-        throw res.stderr;
-      }
-      done();
-    });
-  });
-  grunt.registerTask('default', ['jshint', 'test']);
+  grunt.registerTask('default', ['jshint', 'jscs', 'mochacli']);
+  grunt.registerTask('test', 'default');
 };
