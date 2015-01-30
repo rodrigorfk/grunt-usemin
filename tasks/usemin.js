@@ -109,6 +109,7 @@ module.exports = function (grunt) {
       type: this.target
     });
     var blockReplacements = options.blockReplacements || {};
+    var encoding = options.encoding || 'utf8';
 
     debug('Looking at %s target', this.target);
     var patterns = [];
@@ -125,7 +126,7 @@ module.exports = function (grunt) {
     var revvedfinder = new RevvedFinder(locator);
     var handler = new FileProcessor(type, patterns, revvedfinder, function (msg) {
       grunt.verbose.writeln(msg);
-    }, blockReplacements);
+    }, blockReplacements, grunt, encoding);
 
     this.files.forEach(function (fileObj) {
       var files = grunt.file.expand({
@@ -141,7 +142,7 @@ module.exports = function (grunt) {
         var content = handler.process(filename, options.assetsDirs);
 
         // write the new content to disk
-        grunt.file.write(filename, content);
+        grunt.file.write(filename, content, {encoding: encoding});
 
       });
 
@@ -157,6 +158,7 @@ module.exports = function (grunt) {
     var dest = options.dest || 'dist';
     var staging = options.staging || '.tmp';
     var root = options.root;
+    var encoding = options.encoding || 'utf8';
 
     grunt.verbose
       .writeln('Going through ' + grunt.log.wordlist(this.filesSrc) + ' to update the config')
@@ -185,7 +187,7 @@ module.exports = function (grunt) {
     this.filesSrc.forEach(function (filepath) {
       var config;
       try {
-        config = c.process(filepath, grunt.config());
+        config = c.process(filepath, grunt.config(), grunt, encoding);
       } catch (e) {
         grunt.fail.warn(e);
       }
